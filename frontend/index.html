@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DDR Report Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f0f2f5;
+    color: #1a1a1a;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: #1d3557;
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+  }
+
+  .logo-badge {
+    background: #e63946;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .logo-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .logo-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    margin-left: 4px;
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 860px;
+    margin: 36px auto;
+    padding: 0 20px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    padding: 28px 32px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d3557;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e8ecf0;
+  }
+
+  /* ── UPLOAD ── */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 560px) { .upload-grid { grid-template-columns: 1fr; } }
+
+  .drop-zone {
+    border: 2px dashed #c8d0dc;
+    border-radius: 6px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+    background: #fafbfc;
+  }
+
+  .drop-zone:hover  { border-color: #1d3557; background: #f4f6f9; }
+  .drop-zone.drag   { border-color: #1d3557; background: #eef1f6; }
+  .drop-zone.ready  { border-color: #2a9d3a; border-style: solid; background: #f5fbf6; }
+
+  .drop-zone input {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  .dz-icon { font-size: 26px; margin-bottom: 8px; display: block; }
+
+  .dz-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 3px;
+  }
+
+  .dz-hint { font-size: 12px; color: #888; }
+
+  .dz-name {
+    display: none;
+    font-size: 12px;
+    color: #2a9d3a;
+    font-weight: 500;
+    margin-top: 6px;
+  }
+
+  .drop-zone.ready .dz-name { display: block; }
+  .drop-zone.ready .dz-hint { display: none; }
+
+  /* ── BUTTON ── */
+  .btn {
+    padding: 9px 22px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, opacity 0.15s;
+  }
+
+  .btn-primary { background: #1d3557; color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #16304f; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: #fff;
+    color: #1d3557;
+    border: 1px solid #c8d0dc;
+  }
+  .btn-secondary:hover:not(:disabled) { background: #f4f6f9; }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-row { display: flex; align-items: center; gap: 10px; }
+
+  /* ── ERROR ── */
+  .error {
+    display: none;
+    background: #fff5f5;
+    border-left: 3px solid #e63946;
+    padding: 10px 14px;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    color: #c0392b;
+    margin-bottom: 16px;
+  }
+  .error.show { display: block; }
+
+  /* ── PROGRESS ── */
+  .progress { display: none; margin-bottom: 16px; }
+  .progress.show { display: block; }
+
+  .progress-bar {
+    height: 4px;
+    background: #e8ecf0;
+    border-radius: 2px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1d3557, #457b9d);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  .progress-text { font-size: 12px; color: #666; }
+
+  /* ── REPORT ── */
+  #report { display: none; }
+  #report.show { display: block; }
+
+  .report-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #e8ecf0;
+  }
+
+  .report-topbar h2 { font-size: 17px; font-weight: 700; color: #1d3557; }
+  .report-topbar p  { font-size: 12px; color: #888; margin-top: 3px; }
+  .export-btns { display: flex; gap: 8px; }
+
+  /* ── SECTIONS ── */
+  .section { margin-bottom: 28px; }
+
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .sec-num {
+    background: #1d3557;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+
+  .sec-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d3557;
+  }
+
+  .prose { font-size: 13px; color: #444; line-height: 1.75; }
+
+  /* ── AREA CARDS ── */
+  .area-card {
+    border: 1px solid #e4e8ed;
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    background: #fafbfc;
+  }
+
+  .area-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  .badge-high   { background: #fde8e8; color: #c0392b; }
+  .badge-medium { background: #fef3cd; color: #856404; }
+  .badge-low    { background: #d4edda; color: #155724; }
+
+  .area-body { font-size: 13px; color: #555; line-height: 1.7; }
+
+  .thermal-row {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #eef4fb;
+    border-left: 3px solid #457b9d;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #2c5282;
+  }
+
+  .img-placeholder {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px dashed #d0d7de;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #aaa;
+    text-align: center;
+  }
+
+  .area-img {
+    margin-top: 10px;
+    max-width: 100%;
+    border-radius: 5px;
+    border: 1px solid #dde1e7;
+    display: block;
+  }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  thead tr { background: #f4f6f9; }
+
+  th {
+    text-align: left;
+    padding: 9px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #666;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e4e8ed;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f2f5;
+    color: #444;
+    vertical-align: top;
+    line-height: 1.55;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  /* ── ACTION LIST ── */
+  .action-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f2f5;
+    font-size: 13px;
+    color: #444;
+  }
+
+  .action-item:last-child { border-bottom: none; }
+
+  .action-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #e8ecf0;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    color: #1d3557;
+    margin-top: 1px;
+  }
+
+  /* ── TAGS ── */
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .tag {
+    font-size: 12px;
+    background: #f0f2f5;
+    border: 1px solid #d8dde4;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #555;
+  }
+
+  .tag-conflict {
+    background: #fff5f5;
+    border-color: #f5c6c6;
+    color: #c0392b;
+  }
+
+  /* ── GALLERY ── */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 12px;
+  }
+
+  .gallery img {
+    width: 100%;
+    border-radius: 5px;
+    border: 1px solid #dde1e7;
+    display: block;
+  }
+
+  .gallery-caption {
+    font-size: 11px;
+    color: #888;
+    margin-top: 5px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <span class="logo-badge">DDR</span>
+    <span class="logo-text">Report Generator</span>
+    <span class="logo-sub">AI-Assisted Diagnostic Reports</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- UPLOAD CARD -->
+  <div class="card">
+    <div class="card-title">Upload Inspection Documents</div>
+
+    <div class="upload-grid">
+      <div class="drop-zone" id="box-insp">
+        <input type="file" id="file-insp" accept=".pdf,.txt,.png,.jpg,.jpeg">
+        <span class="dz-icon">📋</span>
+        <div class="dz-label">Inspection Report</div>
+        <div class="dz-hint">PDF, TXT or image</div>
+        <div class="dz-name" id="name-insp"></div>
+      </div>
+      <div class="drop-zone" id="box-therm">
+        <input type="file" id="file-therm" accept=".pdf,.txt,.png,.jpg,.jpeg">
+        <span class="dz-icon">🌡️</span>
+        <div class="dz-label">Thermal Report</div>
+        <div class="dz-hint">PDF, TXT or image</div>
+        <div class="dz-name" id="name-therm"></div>
+      </div>
+    </div>
+
+    <div class="error" id="err"></div>
+
+    <div class="progress" id="progress">
+      <div class="progress-bar"><div class="progress-fill" id="pfill"></div></div>
+      <div class="progress-text" id="ptext">Processing…</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-gen" disabled onclick="generate()">
+        Generate DDR Report
+      </button>
+    </div>
+  </div>
+
+  <!-- REPORT OUTPUT -->
+  <div id="report">
+    <div class="card">
+
+      <div class="report-topbar">
+        <div>
+          <h2>Detailed Diagnostic Report</h2>
+          <p id="report-meta"></p>
+        </div>
+        <div class="export-btns">
+          <button class="btn btn-secondary" id="btn-pdf" onclick="exportReport('pdf')">⬇ Export PDF</button>
+          <button class="btn btn-secondary" id="btn-docx" onclick="exportReport('docx')">⬇ Export DOCX</button>
+        </div>
+      </div>
+
+      <div id="report-body"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+let inspFile = null, thermFile = null, currentData = null;
+
+function setup(boxId, inputId, nameId, key) {
+  const box = document.getElementById(boxId);
+  const input = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  input.addEventListener('change', e => {
+    const f = e.target.files[0]; if (f) attach(key, f, box, nameEl);
+  });
+  box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('drag'); });
+  box.addEventListener('dragleave', () => box.classList.remove('drag'));
+  box.addEventListener('drop', e => {
+    e.preventDefault(); box.classList.remove('drag');
+    const f = e.dataTransfer.files[0]; if (f) attach(key, f, box, nameEl);
+  });
+}
+
+function attach(key, f, box, nameEl) {
+  if (key === 'insp') inspFile = f; else thermFile = f;
+  box.classList.add('ready');
+  nameEl.textContent = '✓  ' + f.name;
+  document.getElementById('btn-gen').disabled = !(inspFile && thermFile);
+}
+
+setup('box-insp',  'file-insp',  'name-insp',  'insp');
+setup('box-therm', 'file-therm', 'name-therm', 'therm');
+
+const steps = ['Reading documents…', 'Extracting images…', 'Merging data…', 'Running AI analysis…', 'Building report…'];
+function setStep(n) {
+  document.getElementById('pfill').style.width = (n * 20) + '%';
+  document.getElementById('ptext').textContent = steps[n - 1] || '';
+}
+
+async function generate() {
+  const btn = document.getElementById('btn-gen');
+  const err = document.getElementById('err');
+  const prog = document.getElementById('progress');
+  const reportEl = document.getElementById('report');
+
+  err.className = 'error';
+  reportEl.className = '';
+  prog.className = 'progress show';
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  try {
+    setStep(1);
+    const fd = new FormData();
+    fd.append('inspection', inspFile);
+    fd.append('thermal', thermFile);
+    setStep(2); await sleep(200);
+    setStep(3); await sleep(150);
+    setStep(4);
+    const res = await fetch('/api/generate', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.detail || 'Server error ' + res.status);
+    }
+    setStep(5);
+    currentData = await res.json();
+    render(currentData);
+  } catch(e) {
+    err.className = 'error show';
+    err.textContent = '⚠  ' + e.message;
+    prog.className = 'progress';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Regenerate Report';
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function x(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function sevBadge(s) {
+  s = (s || '').toLowerCase();
+  const cls = s === 'high' ? 'badge-high' : s === 'low' ? 'badge-low' : 'badge-medium';
+  return '<span class="badge ' + cls + '">' + (s.charAt(0).toUpperCase() + s.slice(1)) + '</span>';
+}
+
+function sevColor(s) {
+  s = (s || '').toLowerCase();
+  return s === 'high' ? '#c0392b' : s === 'low' ? '#155724' : '#856404';
+}
+
+function sec(num, title, content) {
+  return '<div class="section">'
+    + '<div class="section-heading">'
+    + '<span class="sec-num">' + num + '</span>'
+    + '<span class="sec-title">' + title + '</span>'
+    + '</div>'
+    + content
+    + '</div>';
+}
+
+function render(data) {
+  const { report_id, generated_at, report, images } = data;
+  document.getElementById('report-meta').textContent =
+    'Report ID: ' + report_id + '  ·  Generated: ' + new Date(generated_at).toLocaleString();
+
+  let imgIdx = 0;
+  function nextImg() {
+    if (!images || !images.length)
+      return '<div class="img-placeholder">📷 Image Not Available</div>';
+    const img = images[imgIdx % images.length]; imgIdx++;
+    return '<img class="area-img" src="' + img.src + '" alt="' + x(img.label) + '" loading="lazy">';
+  }
+
+  let html = '';
+
+  // 01 Summary
+  html += sec('01', 'Property Issue Summary',
+    '<div class="prose">' + x(report.property_summary || 'Not Available') + '</div>');
+
+  // 02 Area-wise Observations
+  let areas = '';
+  (report.areas || []).forEach(a => {
+    const thermal = a.thermal_finding && a.thermal_finding !== 'Not Available'
+      ? '<div class="thermal-row"><strong>Thermal Finding:</strong> ' + x(a.thermal_finding) + '</div>' : '';
+    areas += '<div class="area-card">'
+      + '<div class="area-top">' + x(a.name) + sevBadge(a.severity) + '</div>'
+      + '<div class="area-body">' + x(a.observations) + '</div>'
+      + thermal + nextImg()
+      + '</div>';
+  });
+  html += sec('02', 'Area-wise Observations', areas || '<div class="prose">Not Available</div>');
+
+  // 03 Root Cause
+  let rc = '';
+  (report.root_causes || []).forEach((r, i) => {
+    rc += '<div class="action-item">'
+      + '<div class="action-num">' + (i + 1) + '</div>'
+      + '<div><strong>' + x(r.issue) + ':</strong>  ' + x(r.cause) + '</div>'
+      + '</div>';
+  });
+  html += sec('03', 'Probable Root Cause', rc || '<div class="prose">Not Available</div>');
+
+  // 04 Severity Assessment
+  let sevRows = '';
+  (report.severity_assessment || []).forEach(s => {
+    sevRows += '<tr>'
+      + '<td>' + x(s.area) + '</td>'
+      + '<td><strong style="color:' + sevColor(s.severity) + '">' + x(s.severity) + '</strong></td>'
+      + '<td>' + x(s.reasoning) + '</td>'
+      + '</tr>';
+  });
+  html += sec('04', 'Severity Assessment',
+    sevRows
+      ? '<table><thead><tr><th>Area</th><th>Severity</th><th>Reasoning</th></tr></thead><tbody>' + sevRows + '</tbody></table>'
+      : '<div class="prose">Not Available</div>'
+  );
+
+  // 05 Recommended Actions
+  let acts = '';
+  (report.recommended_actions || []).forEach((a, i) => {
+    acts += '<div class="action-item">'
+      + '<div class="action-num">' + (i + 1) + '</div>'
+      + '<div>' + x(a) + '</div>'
+      + '</div>';
+  });
+  html += sec('05', 'Recommended Actions', acts || '<div class="prose">Not Available</div>');
+
+  // 06 Additional Notes
+  html += sec('06', 'Additional Notes',
+    '<div class="prose">' + x(report.additional_notes || 'Not Available') + '</div>');
+
+  // 07 Missing Info
+  const missing = report.missing_info || [], conflicts = report.conflicts || [];
+  let tags = '';
+  if (!missing.length && !conflicts.length) {
+    tags = '<div class="prose">No missing information identified.</div>';
+  } else {
+    tags = '<div class="tags">';
+    missing.forEach(m => { tags += '<span class="tag">⚠ ' + x(m) + '</span>'; });
+    conflicts.forEach(c => { tags += '<span class="tag tag-conflict">⚡ Conflict: ' + x(c) + '</span>'; });
+    tags += '</div>';
+  }
+  html += sec('07', 'Missing or Unclear Information', tags);
+
+  // Gallery
+  if (images && images.length) {
+    let gal = '<div class="gallery">';
+    images.forEach(img => {
+      gal += '<div>'
+        + '<img src="' + img.src + '" alt="' + x(img.label) + '" loading="lazy">'
+        + '<div class="gallery-caption">' + x(img.label) + '</div>'
+        + '</div>';
+    });
+    gal += '</div>';
+    html += sec('A', 'Extracted Document Images', gal);
+  }
+
+  document.getElementById('report-body').innerHTML = html;
+  const reportEl = document.getElementById('report');
+  reportEl.className = 'show';
+  document.getElementById('progress').className = 'progress';
+  reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function exportReport(fmt) {
+  if (!currentData) return;
+  const btn = document.getElementById('btn-' + fmt);
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const res = await fetch('/api/export/' + fmt, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        report_id: currentData.report_id,
+        report: currentData.report,
+        images: currentData.images
+      })
+    });
+    if (!res.ok) throw new Error('Export failed: ' + res.status);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'DDR_Report_' + currentData.report_id + '.' + fmt;
+    a.click();
+  } catch (e) { alert(e.message); }
+  btn.disabled = false;
+  btn.textContent = fmt === 'pdf' ? '⬇ Export PDF' : '⬇ Export DOCX';
+}
+</script>
+</body>
+</html>
